@@ -18,14 +18,49 @@ def greeting():
     layout = [
         [sg.Text("Welcome to our project!", size=(25, 2))],
         header + input_rows + input_rows2 + input_rows3 + input_rows4,
-        [sg.Button("Proceed!", size=(20, 2))]
+        [sg.Button("Proceed!", size=(10, 1)), sg.Button("Guide", size=(10, 1)), sg.Button("Exit", size=(10, 1))]
     ]
 
-    window = sg.Window('Table Simulation', layout, font='Courier 12')
+    window = sg.Window('Greetings', layout, font='Courier 12')
     event, values = window.read()
 
     if event == "Proceed!":
         window.close()
+        return 0
+    if event == "Guide":
+        window.close()
+        return 1
+    if event == "Exit" or event == sg.WINDOW_CLOSED:
+        window.close()
+        exit()
+
+
+def manual_guide():
+    layout = [
+        [sg.Text("Step 1: Greetings", font=('Arial', 12, 'underline italic'))],
+        [sg.Text("Click on the Continue button to continue to import a video.")],
+        [sg.Text("Step 2: Import video", font=('Arial', 12, 'underline italic'))],
+        [sg.Text("Tap on the browse button to choose a video file from your computer. Click Confirm to proceed to the "
+                 "Calibration phase.")],
+        [sg.Text("Step 3: Calibration", font=('Arial', 12, 'underline italic'))],
+        [sg.Text("An overview image of your video will be shown on the screen. You can choose to make calibration "
+                 "accordingly. Otherwise, the system will proceed with default values.")],
+        [sg.Text("Step 4: Playing video", font=('Arial', 12, 'underline italic'))],
+        [sg.Text("The video will start playing with the previous step's coordinate values. There is also a slider "
+                 "that you can use to adjust the video back and forth. Clicking on the Finish button will move you to "
+                 "the Finalization phase.")],
+        [sg.Text("Step 5: Finalization", font=('Arial', 12, 'underline italic'))],
+        [sg.Text("Any data collected from your video will be shown here. Click Exit to close the application.")],
+        [sg.Button("Continue", size=(10, 1))]
+    ]
+
+    window = sg.Window("User Manual Guide", layout)
+    event, values = window.read()
+    if event == "Continue":
+        window.close()
+    elif event == sg.WINDOW_CLOSED:
+        window.close()
+        exit()
 
 
 def get_video():
@@ -35,11 +70,14 @@ def get_video():
         [sg.Button('Confirm', size=(10, 1)), sg.Button('Cancel', size=(10, 1))]
     ]
 
-    window = sg.Window("Pop up testing", layout)
+    window = sg.Window("Choose a video to play", layout)
     event, values = window.read()
 
     if event == 'Confirm':
         window.close()
+    elif event == 'Cancel' or event == sg.WINDOW_CLOSED:
+        window.close()
+        exit()
 
     print(values['file'])
     return values['file']
@@ -67,7 +105,6 @@ def get_calibration(filepath):
     while not close:
         event, values = window.read(timeout=0)
         while cap.isOpened():
-
             ret, frame = cap.read()
             if not ret:
                 break
@@ -81,6 +118,10 @@ def get_calibration(filepath):
                 cal_list.append(values[i])
             close = True
             window.close()
+        elif event == sg.WINDOW_CLOSED:
+            close = True
+            window.close()
+            exit()
     print(cal_list)
     return cal_list
 
@@ -179,6 +220,12 @@ def play_video(filepath, cal_list):
                 cap.release()
                 cv2.destroyAllWindows()
                 window.close()
+            elif event == sg.WINDOW_CLOSED:
+                close = True
+                cap.release()
+                cv2.destroyAllWindows()
+                window.close()
+                exit()
             if not ret:
                 break
             # Adjust the frame slider
@@ -291,8 +338,17 @@ def finalization(cnt_list):
 
 
 sg.theme("LightGreen")
-greeting()
-filepath = get_video()
-cal_list = get_calibration(filepath)
-cnt_list = play_video(filepath, cal_list)
-finalization(cnt_list)
+get_cmd = greeting()
+
+if get_cmd == 0:
+    filepath = get_video()
+    cal_list = get_calibration(filepath)
+    cnt_list = play_video(filepath, cal_list)
+    finalization(cnt_list)
+else:
+    if get_cmd == 1:
+        manual_guide()
+        filepath = get_video()
+        cal_list = get_calibration(filepath)
+        cnt_list = play_video(filepath, cal_list)
+        finalization(cnt_list)
