@@ -3,6 +3,14 @@ import numpy as np
 import cv2
 import vehicles
 import time
+import os
+
+lineDrawn = []
+
+# specifying output folder for exports
+path = 'output'
+os.makedirs(path, exist_ok=True)
+
 
 
 def greeting():
@@ -127,6 +135,18 @@ def get_calibration(filepath):
 
 
 def play_video(filepath, cal_list):
+    def mouse_handler(event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            # there can only be two coords, a starting and
+            # an end point to form a line
+            # TODO: ability to draw multiple lines separately
+            if len(lineDrawn) > 2:
+                lineDrawn.clear()
+
+            cv2.circle(img, (x, y), 3, (0, 0, 255), 3, cv2.FILLED)
+            lineDrawn.append((x, y))
+        if event == cv2.EVENT_RBUTTONDOWN:
+            lineDrawn.clear()
     cap = cv2.VideoCapture(filepath)
     num_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 
@@ -150,54 +170,17 @@ def play_video(filepath, cal_list):
 
     # Get width and height of video
 
-    w = cap.get(3)
-    h = cap.get(4)
-    print(w)
-    print(h)
-    frameArea = h * w
+    width = cap.get(3)
+    height = cap.get(4)
+    print(width)
+    print(height)
+    frameArea = width * height
     areaTH = frameArea / 400
 
-    # Lines
-    # line_up=int(2*(h/5))
-    # line_down=int(3*(h/5))
-    #
-    # up_limit=int(1*(h/5))
-    # down_limit=int(4*(h/5))
-
-    # Testing change position
-    line_up = int(3 * (h / 5))
-    line_down = int(2 * (h / 5))
-
-    print(line_up)
-    print(line_down)
-    up_limit = int(1 * (h / 5))
-    down_limit = int(4 * (h / 5))
-
-    print("Red line y:", str(line_down))
-    print("Blue line y:", str(line_up))
-    line_down_color = (255, 0, 0)
-    line_up_color = (225, 0, 255)
-    pt1 = [0, line_down]
-    pt2 = [w, line_down]
-    pts_L1 = np.array([pt1, pt2], np.int32)
-    pts_L1 = pts_L1.reshape((-1, 1, 2))
-    pt3 = [0, line_up * 1.12]
-    pt4 = [w, line_up * 1.12]
-
-    pts_L2 = np.array([pt3, pt4], np.int32)
-    pts_L2 = pts_L2.reshape((-1, 1, 2))
-
-    pt5 = [0, down_limit]
-    pt6 = [w, down_limit]
-    pts_L3 = np.array([pt5, pt6], np.int32)
-    pts_L3 = pts_L3.reshape((-1, 1, 2))
-    pt7 = [0, up_limit]
-    pt8 = [w, up_limit]
-    pts_L4 = np.array([pt7, pt8], np.int32)
-    pts_L4 = pts_L4.reshape((-1, 1, 2))
+    # Testing
 
     # Background Subtractor
-    fgbg = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
+    fgbg = cv2.bgsegm.createBackgroundSubtractorGSOC(noiseRemovalThresholdFacBG=0.01, noiseRemovalThresholdFacFG=0.0001)
 
     # Kernals
     kernalOp = np.ones((3, 3), np.uint8)
@@ -206,8 +189,11 @@ def play_video(filepath, cal_list):
 
     font = cv2.FONT_HERSHEY_SIMPLEX
     cars = []
+
     max_p_age = 5
     pid = 1
+
+    img_num = 0
 
     close = False
     cur_frame = 0
@@ -243,6 +229,45 @@ def play_video(filepath, cal_list):
                 i.age_one()
             fgmask = fgbg.apply(frame)
             fgmask2 = fgbg.apply(frame)
+
+            # Testing change position
+            line_up = int(3 * (height / 5))
+            line_down = int(2 * (height / 5))
+
+            print(line_up)
+            print(line_down)
+            up_limit = int(1 * (height / 5))
+            down_limit = int(4 * (height / 5))
+
+            print("Red line y:", str(line_down))
+            print("Blue line y:", str(line_up))
+            line_down_color = (255, 0, 0)
+            line_up_color = (225, 0, 255)
+            pt1 = [0, line_down]
+            pt2 = [width, line_down]
+            # pts_L1 = np.array([pt1, pt2], np.int32)
+            pt3 = [0, line_up * 1.12]
+            pt4 = [width, line_up * 1.12]
+
+            pts_L2 = np.array([pt3, pt4], np.int32)
+            pts_L2 = pts_L2.reshape((-1, 1, 2))
+
+            pt5 = [0, down_limit]
+            pt6 = [width, down_limit]
+            pts_L3 = np.array([pt5, pt6], np.int32)
+            pts_L3 = pts_L3.reshape((-1, 1, 2))
+            pt7 = [0, up_limit]
+            pt8 = [width, up_limit]
+            pts_L4 = np.array([pt7, pt8], np.int32)
+            pts_L4 = pts_L4.reshape((-1, 1, 2))
+
+            if len(lineDrawn) > 0:
+                pts_L1 = np.array([lineDrawn[0], lineDrawn[0]], np.int32)
+                pts_L1 = pts_L1.reshape((-1, 1, 2))
+
+            else:
+                pts_L1 = np.array([(0, 0), (0, 0)], np.int32)
+                pts_L1 = pts_L1.reshape((-1, 1, 2))
 
             if ret == True:
 
@@ -281,8 +306,14 @@ def play_video(filepath, cal_list):
                                         print("ID:", i.getId(), 'crossed going up at', time.strftime("%c"))
                                     elif i.going_DOWN(line_down, line_up) == True:
                                         cnt_down += 1
-                                        print("ID:", i.getId(), 'crossed going up at', time.strftime("%c"))
-                                    break
+                                        roi = frame[y:y + h, x:x + w]
+                                        img_num += 1
+                                        file_name = "test" + str(img_num) + ".png"
+                                        cv2.imwrite(os.path.join(path, file_name), roi)
+                                    #     if img_num > 30:
+                                    #         exit()
+                                    #     print("ID:", i.getId(), 'crossed going up at', time.strftime("%c"))
+                                    # break
                                 if i.getState() == '1':
                                     if i.getDir() == 'down' and i.getY() > down_limit:
                                         i.setDone()
@@ -302,7 +333,8 @@ def play_video(filepath, cal_list):
                         img = cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
                 for i in cars:
-                    cv2.putText(frame, str(i.getId()), (i.getX(), i.getY()), font, 0.3, i.getRGB(), 1, cv2.LINE_AA)
+                    cv2.putText(frame, 'ID: ' + str(i.getId()), (i.getX(), i.getY()), font, 0.3, i.getRGB(), 1,
+                                cv2.LINE_AA)
 
                 str_up = 'UP: ' + str(cnt_up)
                 str_down = 'DOWN: ' + str(cnt_down)
@@ -314,7 +346,17 @@ def play_video(filepath, cal_list):
                 cv2.putText(frame, str_up, (10, 40), font, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
                 cv2.putText(frame, str_down, (10, 90), font, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
                 cv2.putText(frame, str_down, (10, 90), font, 0.5, (255, 0, 0), 1, cv2.LINE_AA)
+                cv2.putText(frame, str(width), (10, 60), font, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+
+                # grabbing coords stored in array if present
+                # then start drawing over latter frames
+                if len(lineDrawn) == 2:
+                    cv2.circle(frame, lineDrawn[0], 3, (0, 0, 255), 3, cv2.FILLED)
+                    cv2.circle(frame, lineDrawn[1], 3, (0, 0, 255), 3, cv2.FILLED)
+                    cv2.line(frame, lineDrawn[0], lineDrawn[1], (255, 0, 0), 2, cv2.LINE_AA)
+
                 cv2.imshow('Frame', frame)
+                cv2.setMouseCallback('Frame', mouse_handler)
     print(filepath)
     print(cal_list)
 
