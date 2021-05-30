@@ -91,50 +91,50 @@ def get_video():
     return values['file']
 
 
-def get_calibration(filepath):
-    layout = [
-        [sg.Text('Please input the UI calibration for your video')],
-        [sg.Text('Line up:', size=(15, 1)), sg.InputText()],
-        [sg.Text('Line down:', size=(15, 1)), sg.InputText()],
-        [sg.Text('Up limit:', size=(15, 1)), sg.InputText()],
-        [sg.Text('Down limit:', size=(15, 1)), sg.InputText()],
-        [sg.Text('Demo image for video:')],
-        [sg.Image(filename='', key='image')],
-        [sg.Button('Confirm', size=(10, 1))]
-    ]
-    cal_list = []
-    cap = cv2.VideoCapture(filepath)
+# def get_calibration(filepath):
+#     layout = [
+#         [sg.Text('Please input the UI calibration for your video')],
+#         [sg.Text('Line up:', size=(15, 1)), sg.InputText()],
+#         [sg.Text('Line down:', size=(15, 1)), sg.InputText()],
+#         [sg.Text('Up limit:', size=(15, 1)), sg.InputText()],
+#         [sg.Text('Down limit:', size=(15, 1)), sg.InputText()],
+#         [sg.Text('Demo image for video:')],
+#         [sg.Image(filename='', key='image')],
+#         [sg.Button('Confirm', size=(10, 1))]
+#     ]
+#     cal_list = []
+#     cap = cv2.VideoCapture(filepath)
+#
+#     window = sg.Window('Get calibration', layout, location=(0, 0))
+#     img_element = window['image']
+#
+#     close = False
+#     cur_frame = 0
+#     while not close:
+#         event, values = window.read(timeout=0)
+#         while cap.isOpened():
+#             ret, frame = cap.read()
+#             if not ret:
+#                 break
+#             if cur_frame == 1:
+#                 break
+#             imgbytes = cv2.imencode('.png', frame)[1].tobytes()  # ditto
+#             img_element.update(data=imgbytes)
+#             cur_frame += 1
+#         if event == 'Confirm':
+#             for i in range(4):
+#                 cal_list.append(values[i])
+#             close = True
+#             window.close()
+#         elif event == sg.WINDOW_CLOSED:
+#             close = True
+#             window.close()
+#             exit()
+#     print(cal_list)
+#     return cal_list
 
-    window = sg.Window('Get calibration', layout, location=(0, 0))
-    img_element = window['image']
 
-    close = False
-    cur_frame = 0
-    while not close:
-        event, values = window.read(timeout=0)
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            if cur_frame == 1:
-                break
-            imgbytes = cv2.imencode('.png', frame)[1].tobytes()  # ditto
-            img_element.update(data=imgbytes)
-            cur_frame += 1
-        if event == 'Confirm':
-            for i in range(4):
-                cal_list.append(values[i])
-            close = True
-            window.close()
-        elif event == sg.WINDOW_CLOSED:
-            close = True
-            window.close()
-            exit()
-    print(cal_list)
-    return cal_list
-
-
-def play_video(filepath, cal_list):
+def play_video(filepath):
     def mouse_handler(event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
             # there can only be two coords, a starting and
@@ -228,26 +228,23 @@ def play_video(filepath, cal_list):
             for i in cars:
                 i.age_one()
             fgmask = fgbg.apply(frame)
-            fgmask2 = fgbg.apply(frame)
 
-            # Testing change position
-            line_up = int(3 * (height / 5))
-            line_down = int(2 * (height / 5))
+            line_up = int(2 * (height / 5))
+            line_down = int(3 * (height / 5))
 
-            print(line_up)
-            print(line_down)
-            up_limit = int(1 * (height / 5))
-            down_limit = int(4 * (height / 5))
+            up_limit = int(1.9 * (height / 5))
+            down_limit = int(3.1 * (height / 5))
 
-            print("Red line y:", str(line_down))
-            print("Blue line y:", str(line_up))
+            # print("Red line y:", str(line_down))
+            # print("Blue line y:", str(line_up))
+
             line_down_color = (255, 0, 0)
             line_up_color = (225, 0, 255)
             pt1 = [0, line_down]
             pt2 = [width, line_down]
-            # pts_L1 = np.array([pt1, pt2], np.int32)
-            pt3 = [0, line_up * 1.12]
-            pt4 = [width, line_up * 1.12]
+            pts_L1 = np.array([pt1, pt2], np.int32)
+            pt3 = [0, line_up]
+            pt4 = [width, line_up]
 
             pts_L2 = np.array([pt3, pt4], np.int32)
             pts_L2 = pts_L2.reshape((-1, 1, 2))
@@ -273,25 +270,23 @@ def play_video(filepath, cal_list):
 
                 # Binarization
                 ret, imBin = cv2.threshold(fgmask, 200, 255, cv2.THRESH_BINARY)
-                ret, imBin2 = cv2.threshold(fgmask2, 200, 255, cv2.THRESH_BINARY)
                 # OPening i.e First Erode the dilate
                 mask = cv2.morphologyEx(imBin, cv2.MORPH_OPEN, kernalOp)
-                mask2 = cv2.morphologyEx(imBin2, cv2.MORPH_CLOSE, kernalOp)
 
                 # Closing i.e First Dilate then Erode
                 mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernalCl)
-                mask2 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, kernalCl)
 
                 # Find Contours
                 countours0, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
                 for cnt in countours0:
                     area = cv2.contourArea(cnt)
-                    print("this is area:" + str(area))
                     if area > areaTH:
-                        ####Tracking######
+                        # extracting centroids here
                         m = cv2.moments(cnt)
                         cx = int(m['m10'] / m['m00'])
                         cy = int(m['m01'] / m['m00'])
+
+                        # assigning rectangle/bounding box coords
                         x, y, w, h = cv2.boundingRect(cnt)
 
                         new = True
@@ -306,14 +301,16 @@ def play_video(filepath, cal_list):
                                         print("ID:", i.getId(), 'crossed going up at', time.strftime("%c"))
                                     elif i.going_DOWN(line_down, line_up) == True:
                                         cnt_down += 1
+                                        print("ID:", i.getId(), 'crossed going up at', time.strftime("%c"))
+
+                                        # outputting and cropping captured vehicles
                                         roi = frame[y:y + h, x:x + w]
                                         img_num += 1
                                         file_name = "test" + str(img_num) + ".png"
                                         cv2.imwrite(os.path.join(path, file_name), roi)
-                                    #     if img_num > 30:
-                                    #         exit()
-                                    #     print("ID:", i.getId(), 'crossed going up at', time.strftime("%c"))
-                                    # break
+                                        # if img_num > 30:
+                                        #     exit()
+                                    break
                                 if i.getState() == '1':
                                     if i.getDir() == 'down' and i.getY() > down_limit:
                                         i.setDone()
@@ -324,7 +321,8 @@ def play_video(filepath, cal_list):
                                     cars.pop(index)
                                     del i
 
-                            if new == True:  # If nothing is detected,create new
+                            # If nothing is detected,create new
+                            if new:
                                 p = vehicles.Car(pid, cx, cy, max_p_age)
                                 cars.append(p)
                                 pid += 1
@@ -358,24 +356,28 @@ def play_video(filepath, cal_list):
                 cv2.imshow('Frame', frame)
                 cv2.setMouseCallback('Frame', mouse_handler)
     print(filepath)
-    print(cal_list)
+    # print(cal_list)
 
     cnt_list.append(cnt_up)
     cnt_list.append(cnt_down)
     return cnt_list
 
 
-def finalization(cnt_list):
+def finalization(cnt_list, path):
+    print(path)
     layout = [
         [sg.Text('Number of cars moving up:'), sg.Text(cnt_list[0])],
         [sg.Text('Number of car moving down:'), sg.Text(cnt_list[1])],
         [sg.Text('Number of car violated traffic rules:'), sg.Text('0')],
-        [sg.Button('Exit', size=(10, 1))]
+        [sg.Button('Exit', size=(10, 1)), sg.Button('Images', size=(10, 1))]
     ]
     window = sg.Window("Finalization", layout)
     event, values = window.read()
 
     if event == 'Exit':
+        window.close()
+    elif event == 'Images':
+        os.startfile(path)
         window.close()
 
 
@@ -384,13 +386,13 @@ get_cmd = greeting()
 
 if get_cmd == 0:
     filepath = get_video()
-    cal_list = get_calibration(filepath)
-    cnt_list = play_video(filepath, cal_list)
-    finalization(cnt_list)
+    # cal_list = get_calibration(filepath)
+    cnt_list = play_video(filepath)
+    finalization(cnt_list, path)
 else:
     if get_cmd == 1:
         manual_guide()
         filepath = get_video()
-        cal_list = get_calibration(filepath)
-        cnt_list = play_video(filepath, cal_list)
-        finalization(cnt_list)
+        # cal_list = get_calibration(filepath)
+        cnt_list = play_video(filepath)
+        finalization(cnt_list, path)
